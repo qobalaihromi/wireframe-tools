@@ -21,6 +21,7 @@ const steps = [
     { id: 'outOfScope', label: 'Out of Scope', icon: Ban },
     { id: 'tech', label: 'Tech Stack', icon: Wrench },
     { id: 'database', label: 'Database', icon: Database },
+    { id: 'info', label: 'Info', icon: Sparkles },
 ]
 
 interface BrainDumpFormProps {
@@ -42,6 +43,7 @@ export function BrainDumpForm({ onComplete }: BrainDumpFormProps) {
         outOfScope: existingPRD?.outOfScope || ['', '', ''],
         techPreferences: existingPRD?.techPreferences || '',
         databaseSchema: existingPRD?.databaseSchema || '',
+        knownInfo: existingPRD?.knownInfo || '',
     })
 
     const updateField = (field: keyof PRDData, value: string | string[]) => {
@@ -263,6 +265,23 @@ export function BrainDumpForm({ onComplete }: BrainDumpFormProps) {
                     </div>
                 )
 
+            case 'info':
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-2">
+                                Informasi tambahan yang perlu diketahui?
+                            </label>
+                            <textarea
+                                value={formData.knownInfo || ''}
+                                onChange={(e) => updateField('knownInfo', e.target.value)}
+                                placeholder="Contoh: Style guide referensi, timeline deadline, batasan API..."
+                                className="w-full h-32 bg-[#252525] border border-[#2a2a2a] rounded-lg px-4 py-3 text-white placeholder-[#6a6a6a] focus:border-[#6366f1] focus:outline-none resize-none"
+                            />
+                        </div>
+                    </div>
+                )
+
             default:
                 return null
         }
@@ -281,10 +300,10 @@ export function BrainDumpForm({ onComplete }: BrainDumpFormProps) {
                         <div key={step.id} className="flex flex-col items-center">
                             <div
                                 className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-colors ${isActive
-                                        ? 'bg-[#6366f1] text-white'
-                                        : isCompleted
-                                            ? 'bg-green-500/20 text-green-400'
-                                            : 'bg-[#252525] text-[#6a6a6a]'
+                                    ? 'bg-[#6366f1] text-white'
+                                    : isCompleted
+                                        ? 'bg-green-500/20 text-green-400'
+                                        : 'bg-[#252525] text-[#6a6a6a]'
                                     }`}
                             >
                                 <Icon size={18} />

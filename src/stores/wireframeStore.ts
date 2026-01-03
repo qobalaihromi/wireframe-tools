@@ -27,6 +27,8 @@ export interface Artboard {
     name: string
     width: number
     height: number
+    x: number
+    y: number
     shapes: Shape[]
 }
 
@@ -35,9 +37,10 @@ interface WireframeState {
 
     // Actions
     getArtboards: (projectId: string) => Artboard[]
-    addArtboard: (projectId: string, name: string) => string
+    addArtboard: (projectId: string, name: string, x?: number, y?: number, width?: number, height?: number) => string
     deleteArtboard: (projectId: string, artboardId: string) => void
     updateArtboard: (projectId: string, artboardId: string, updates: Partial<Artboard>) => void
+    updateArtboardPosition: (projectId: string, artboardId: string, x: number, y: number) => void
 
     addShape: (projectId: string, artboardId: string, shape: Shape) => void
     updateShape: (projectId: string, artboardId: string, shapeId: string, updates: Partial<Shape>) => void
@@ -53,13 +56,22 @@ export const useWireframeStore = create<WireframeState>()(
                 return get().artboardsByProject[projectId] || []
             },
 
-            addArtboard: (projectId, name) => {
+            addArtboard: (projectId, name, x, y, width, height) => {
                 const id = `artboard_${Date.now()}`
+                const existingArtboards = get().artboardsByProject[projectId] || []
+
+                // Default position logic: place next to the last one with 100px gap
+                const lastArtboard = existingArtboards[existingArtboards.length - 1]
+                const defaultX = lastArtboard ? lastArtboard.x + lastArtboard.width + 100 : 0
+                const defaultY = 0
+
                 const newArtboard: Artboard = {
                     id,
                     name,
-                    width: 375,
-                    height: 667,
+                    width: width ?? 375,
+                    height: height ?? 667,
+                    x: x ?? defaultX,
+                    y: y ?? defaultY,
                     shapes: [],
                 }
                 set((state) => ({
@@ -88,6 +100,17 @@ export const useWireframeStore = create<WireframeState>()(
                         ...state.artboardsByProject,
                         [projectId]: (state.artboardsByProject[projectId] || []).map((a) =>
                             a.id === artboardId ? { ...a, ...updates } : a
+                        ),
+                    },
+                }))
+            },
+
+            updateArtboardPosition: (projectId, artboardId, x, y) => {
+                set((state) => ({
+                    artboardsByProject: {
+                        ...state.artboardsByProject,
+                        [projectId]: (state.artboardsByProject[projectId] || []).map((a) =>
+                            a.id === artboardId ? { ...a, x, y } : a
                         ),
                     },
                 }))

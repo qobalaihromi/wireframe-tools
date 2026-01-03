@@ -6,6 +6,7 @@ export interface PRDData {
     outOfScope: string[]
     techPreferences: string
     databaseSchema: string
+    knownInfo?: string
 }
 
 export function generatePRDMarkdown(data: PRDData): string {
@@ -63,6 +64,12 @@ ${data.techPreferences}
 \`\`\`
 ${data.databaseSchema}
 \`\`\`
+
+---
+
+` : ''}${data.knownInfo ? `## ${data.databaseSchema ? (data.techPreferences ? '7' : '6') : (data.techPreferences ? '6' : '5')}. Informasi yang Perlu Diketahui
+
+${data.knownInfo}
 
 ---
 

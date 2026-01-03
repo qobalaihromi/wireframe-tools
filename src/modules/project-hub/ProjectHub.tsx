@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Plus, Trash2, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, ChevronRight, Package } from 'lucide-react'
 import { useProjectStore } from '../../stores/projectStore'
 import { useAppStore } from '../../stores/appStore'
+import { ContextBundlePanel } from '../context-bundle/ContextBundlePanel'
 
 export function ProjectHub() {
     const { projects, createProject, deleteProject, setCurrentProject } = useProjectStore()
@@ -10,6 +11,9 @@ export function ProjectHub() {
     const [showNewProjectForm, setShowNewProjectForm] = useState(false)
     const [newProjectName, setNewProjectName] = useState('')
     const [newProjectDescription, setNewProjectDescription] = useState('')
+
+    const [contextBundleProjectId, setContextBundleProjectId] = useState<string | null>(null)
+    const [contextBundleProjectName, setContextBundleProjectName] = useState<string>('')
 
     const handleCreateProject = () => {
         if (newProjectName.trim()) {
@@ -119,6 +123,16 @@ export function ProjectHub() {
 
                                     <div className="flex items-center gap-2 ml-4">
                                         <button
+                                            onClick={() => {
+                                                setContextBundleProjectId(project.id)
+                                                setContextBundleProjectName(project.name)
+                                            }}
+                                            className="p-2 text-[#a1a1aa] hover:text-[#6366f1] hover:bg-[#252525] rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                                            title="Export Context Bundle"
+                                        >
+                                            <Package size={18} />
+                                        </button>
+                                        <button
                                             onClick={() => deleteProject(project.id)}
                                             className="p-2 text-[#a1a1aa] hover:text-red-400 hover:bg-[#252525] rounded-lg opacity-0 group-hover:opacity-100 transition-all"
                                             title="Delete project"
@@ -138,6 +152,13 @@ export function ProjectHub() {
                         </div>
                     </>
                 )}
+
+                <ContextBundlePanel
+                    projectId={contextBundleProjectId || ''}
+                    projectName={contextBundleProjectName}
+                    isOpen={!!contextBundleProjectId}
+                    onClose={() => setContextBundleProjectId(null)}
+                />
             </div>
         </div>
     )
