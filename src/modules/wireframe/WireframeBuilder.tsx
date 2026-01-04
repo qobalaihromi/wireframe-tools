@@ -24,8 +24,8 @@ export function WireframeBuilder() {
     const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null)
     const [fillColor, setFillColor] = useState('#6366f1')
     const [strokeColor, setStrokeColor] = useState('#4f46e5')
-    const [strokeWidth, setStrokeWidth] = useState(2)
-    const [opacity, setOpacity] = useState(1)
+    const [strokeWidth, _setStrokeWidth] = useState(2)
+    const [opacity, _setOpacity] = useState(1)
     const [showGrid, setShowGrid] = useState(false)
     const [gridSize] = useState(20) // 20px grid
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, artboardId: string, artboardName: string } | null>(null)

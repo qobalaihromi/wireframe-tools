@@ -9,6 +9,7 @@ export interface PRDData {
     outOfScope: string[]
     techPreferences: string
     databaseSchema: string
+    knownInfo?: string
 }
 
 interface PRDState {
@@ -29,6 +30,7 @@ const emptyPRD: PRDData = {
     outOfScope: [],
     techPreferences: '',
     databaseSchema: '',
+    knownInfo: '',
 }
 
 export const usePRDStore = create<PRDState>()(

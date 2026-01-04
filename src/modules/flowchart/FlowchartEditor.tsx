@@ -35,7 +35,7 @@ export function FlowchartEditor() {
 
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
-    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+    const [, setSelectedNodeId] = useState<string | null>(null)
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
     const [editLabel, setEditLabel] = useState('')
     const [activeTool, setActiveTool] = useState<'select' | 'hand'>('select')

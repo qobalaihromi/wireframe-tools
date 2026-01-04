@@ -17,7 +17,7 @@ interface PRDPreviewProps {
     onSave: () => void
 }
 
-export function PRDPreview({ data, onEdit, onSave }: PRDPreviewProps) {
+export function PRDPreview({ data, onEdit, onSave: _onSave }: PRDPreviewProps) {
     const [copied, setCopied] = useState(false)
     const [activeTab, setActiveTab] = useState<'preview' | 'scope'>('preview')
 

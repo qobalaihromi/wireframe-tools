@@ -1,4 +1,4 @@
-import { Download, Trash2, Plus, Image } from 'lucide-react'
+import { Trash2, Plus, Image } from 'lucide-react'
 import type { Artboard } from '../../stores/wireframeStore'
 
 interface WireframeToolbarProps {
