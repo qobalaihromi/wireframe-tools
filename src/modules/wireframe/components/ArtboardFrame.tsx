@@ -15,7 +15,7 @@ interface ArtboardFrameProps {
     onSelect?: (artboardId: string) => void
     onContextMenu?: (x: number, y: number) => void
     onMove?: (artboardId: string, x: number, y: number) => void
-    onResize?: (artboardId: string, width: number, height: number) => void
+    onResize?: (artboardId: string, width: number, height: number, newX?: number, newY?: number) => void
 }
 
 export const ArtboardFrame = React.memo(({
@@ -33,8 +33,16 @@ export const ArtboardFrame = React.memo(({
     onResize,
 }: ArtboardFrameProps) => {
 
-    // Resize state
-    const [resizing, setResizing] = useState<{ corner: string, startX: number, startY: number, startW: number, startH: number } | null>(null)
+    // Resize state - store initial values when drag starts
+    const [resizing, setResizing] = useState<{
+        corner: string,
+        startX: number,
+        startY: number,
+        startW: number,
+        startH: number,
+        startArtboardX: number,
+        startArtboardY: number,
+    } | null>(null)
 
     const handleResizeStart = (corner: string, e: KonvaEventObject<MouseEvent>) => {
         e.cancelBubble = true
@@ -47,45 +55,76 @@ export const ArtboardFrame = React.memo(({
                 startY: pointer.y,
                 startW: artboard.width,
                 startH: artboard.height,
+                startArtboardX: artboard.x,
+                startArtboardY: artboard.y,
             })
         }
     }
 
-    const handleResizeEnd = (e: KonvaEventObject<DragEvent>) => {
+    // Real-time resize during drag
+    const handleResizeMove = (e: KonvaEventObject<DragEvent>) => {
         e.cancelBubble = true
         const node = e.target
         const stage = node.getStage()
         const pointer = stage?.getPointerPosition()
         const corner = resizing?.corner
-        if (!corner || !resizing || !pointer) {
-            node.position({ x: 0, y: 0 })
-            setResizing(null)
-            return
-        }
+        if (!corner || !resizing || !pointer) return
 
-        // Calculate delta from mouse movement, accounting for stage scale and position
+        // Calculate delta from mouse movement, accounting for stage scale
         const scale = stage?.scaleX() || 1
-        const stageX = stage?.x() || 0
-        const stageY = stage?.y() || 0
-
-        // Convert pointer to stage coordinates
         const dx = (pointer.x - resizing.startX) / scale
         const dy = (pointer.y - resizing.startY) / scale
 
         let newWidth = resizing.startW
         let newHeight = resizing.startH
+        let newX = resizing.startArtboardX
+        let newY = resizing.startArtboardY
 
-        // Calculate new dimensions based on which corner/edge was dragged
-        if (corner.includes('e')) newWidth = Math.max(100, resizing.startW + dx)
-        if (corner.includes('w')) newWidth = Math.max(100, resizing.startW - dx)
-        if (corner.includes('s')) newHeight = Math.max(100, resizing.startH + dy)
-        if (corner.includes('n')) newHeight = Math.max(100, resizing.startH - dy)
+        // Calculate new dimensions AND position based on which corner/edge was dragged
+        // For east (right) edge: expand width to the right, position stays same
+        if (corner.includes('e')) {
+            newWidth = Math.max(100, resizing.startW + dx)
+        }
+        // For west (left) edge: expand width to the left, move artboard left
+        if (corner.includes('w')) {
+            const proposedWidth = resizing.startW - dx
+            if (proposedWidth >= 100) {
+                newWidth = proposedWidth
+                newX = resizing.startArtboardX + dx  // Move left as we extend left
+            } else {
+                newWidth = 100
+                newX = resizing.startArtboardX + (resizing.startW - 100)
+            }
+        }
+        // For south (bottom) edge: expand height downward, position stays same
+        if (corner.includes('s')) {
+            newHeight = Math.max(100, resizing.startH + dy)
+        }
+        // For north (top) edge: expand height upward, move artboard up
+        if (corner.includes('n')) {
+            const proposedHeight = resizing.startH - dy
+            if (proposedHeight >= 100) {
+                newHeight = proposedHeight
+                newY = resizing.startArtboardY + dy  // Move up as we extend up
+            } else {
+                newHeight = 100
+                newY = resizing.startArtboardY + (resizing.startH - 100)
+            }
+        }
 
+        // Reset handle position to stay at edge (prevents handle from moving away)
+        node.position({ x: 0, y: 0 })
+
+        // Update artboard dimensions AND position in real-time
+        onResize?.(artboard.id, Math.round(newWidth), Math.round(newHeight), Math.round(newX), Math.round(newY))
+    }
+
+    const handleResizeEnd = (e: KonvaEventObject<DragEvent>) => {
+        e.cancelBubble = true
+        const node = e.target
         // Reset handle position
         node.position({ x: 0, y: 0 })
         setResizing(null)
-
-        onResize?.(artboard.id, Math.round(newWidth), Math.round(newHeight))
     }
 
     const handleShapeClick = (e: KonvaEventObject<MouseEvent>, shapeId: string) => {
@@ -382,6 +421,7 @@ export const ArtboardFrame = React.memo(({
                             strokeWidth={1}
                             draggable
                             onMouseDown={(e) => handleResizeStart(corner, e)}
+                            onDragMove={handleResizeMove}
                             onDragEnd={handleResizeEnd}
                             onMouseEnter={(e) => {
                                 const cursor = corner === 'nw' || corner === 'se' ? 'nwse-resize' : 'nesw-resize'
@@ -411,6 +451,7 @@ export const ArtboardFrame = React.memo(({
                             strokeWidth={1}
                             draggable
                             onMouseDown={(e) => handleResizeStart(corner, e)}
+                            onDragMove={handleResizeMove}
                             onDragEnd={handleResizeEnd}
                             onMouseEnter={(e) => {
                                 const cursor = corner === 'n' || corner === 's' ? 'ns-resize' : 'ew-resize'

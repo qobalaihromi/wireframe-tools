@@ -90,12 +90,19 @@ export function WireframeBuilder() {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return
 
-            // Delete shape
+            // Delete shape or artboard
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 if (selectedShapeId) {
+                    // Delete selected shape
                     const ownerArtboard = artboards.find(a => a.shapes.some(s => s.id === selectedShapeId))
                     if (ownerArtboard) {
                         handleDeleteShape(ownerArtboard.id, selectedShapeId)
+                    }
+                } else if (selectedArtboardId && currentProject) {
+                    // Delete selected artboard (if no shape is selected)
+                    if (confirm('Delete this artboard?')) {
+                        deleteArtboard(currentProject.id, selectedArtboardId)
+                        setSelectedArtboardId(null)
                     }
                 }
             }
@@ -218,9 +225,12 @@ export function WireframeBuilder() {
                         if (!currentProject) return
                         updateArtboard(currentProject.id, artboardId, { x, y })
                     }}
-                    onResizeArtboard={(artboardId: string, width: number, height: number) => {
+                    onResizeArtboard={(artboardId: string, width: number, height: number, newX?: number, newY?: number) => {
                         if (!currentProject) return
-                        updateArtboard(currentProject.id, artboardId, { width, height })
+                        const updates: { width: number, height: number, x?: number, y?: number } = { width, height }
+                        if (newX !== undefined) updates.x = newX
+                        if (newY !== undefined) updates.y = newY
+                        updateArtboard(currentProject.id, artboardId, updates)
                     }}
                     showGrid={showGrid}
                     gridSize={gridSize}

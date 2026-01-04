@@ -29,7 +29,7 @@ interface WireframeCanvasProps {
     onAddArtboard: (x: number, y: number, width: number, height: number) => void
     onRenameArtboard?: (artboardId: string, newName: string) => void
     onMoveArtboard?: (artboardId: string, x: number, y: number) => void
-    onResizeArtboard?: (artboardId: string, width: number, height: number) => void
+    onResizeArtboard?: (artboardId: string, width: number, height: number, newX?: number, newY?: number) => void
     onContextMenuArtboard?: (artboardId: string, artboardName: string, x: number, y: number) => void
 }
 
@@ -119,7 +119,7 @@ export function WireframeCanvas({
         const isPinchZoom = e.evt.ctrlKey || e.evt.metaKey
 
         if (isPinchZoom) {
-            // ZOOM - pinch zoom or Ctrl+scroll
+            // ZOOM - pinch zoom or Ctrl+scroll (Figma-style)
             const oldScale = stage.scaleX()
             const pointer = stage.getPointerPosition()
             if (!pointer) return
@@ -129,15 +129,20 @@ export function WireframeCanvas({
                 y: (pointer.y - stage.y()) / oldScale,
             }
 
-            // Zoom direction
-            const direction = e.evt.deltaY > 0 ? -1 : 1
+            // Use deltaY magnitude for proportional zoom (like Figma)
+            // Smaller delta = smaller zoom step, larger delta = larger zoom step
+            const zoomIntensity = 0.015 // Base zoom intensity (higher = faster)
+            const delta = -e.evt.deltaY
+            const zoomFactor = 1 + delta * zoomIntensity
 
-            // Control zoom speed
-            const scaleBy = 1.05
-            const newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy
+            // Calculate new scale with smooth factor
+            let newScale = oldScale * zoomFactor
 
-            // Limit zoom
-            if (newScale < 0.1 || newScale > 5) return
+            // Clamp zoom limits (10% to 500%)
+            newScale = Math.max(0.1, Math.min(5, newScale))
+
+            // Skip if scale didn't change
+            if (newScale === oldScale) return
 
             const newPos = {
                 x: pointer.x - mousePointTo.x * newScale,
@@ -146,10 +151,11 @@ export function WireframeCanvas({
 
             onStageChange(newScale, newPos)
         } else {
-            // PAN - regular scroll/swipe
+            // PAN - regular scroll/swipe (faster panning)
+            const panSpeed = 1.2 // Slightly faster panning
             const newPos = {
-                x: stagePosition.x - e.evt.deltaX,
-                y: stagePosition.y - e.evt.deltaY,
+                x: stagePosition.x - e.evt.deltaX * panSpeed,
+                y: stagePosition.y - e.evt.deltaY * panSpeed,
             }
             onStageChange(stageScale, newPos)
         }
@@ -292,7 +298,7 @@ export function WireframeCanvas({
                             onSelect={onArtboardSelect}
                             onContextMenu={(x: number, y: number) => onContextMenuArtboard?.(artboard.id, artboard.name, x, y)}
                             onMove={(id, x, y) => onMoveArtboard?.(id, x, y)}
-                            onResize={(id, w, h) => onResizeArtboard?.(id, w, h)}
+                            onResize={(id, w, h, x, y) => onResizeArtboard?.(id, w, h, x, y)}
                         />
                     ))}
 
