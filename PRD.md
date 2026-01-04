@@ -1,15 +1,17 @@
-# PRD: Vibe Context Hub (Antifigma)
+# PRD: Crafthink (Vibe Context Hub)
 
-> **Version:** 0.1 (Draft)
-> **Author:** [Your Name]
+> **Version:** 1.0
+> **Author:** Muhamad Qobala Ihromie
 > **Created:** 3 Januari 2026
-> **Status:** 🟢 In Development
+> **Updated:** 4 Januari 2026
+> **Status:** 🟢 **LIVE**
+> **URL:** [crafthink.vercel.app](https://crafthink.vercel.app)
 
 ---
 
 ## 1. Overview
 
-**Vibe Context Hub** adalah personal productivity tool untuk UI/UX designer yang melakukan vibe coding dengan AI. Tool ini membantu create structured context (PRD, flowchart, wireframe) sebelum dan selama development, sehingga kolaborasi dengan AI menjadi lebih terarah dan konsisten.
+**Crafthink** adalah personal productivity tool untuk UI/UX designer yang melakukan vibe coding dengan AI. Tool ini membantu create structured context (PRD, flowchart, wireframe) sebelum dan selama development, sehingga kolaborasi dengan AI menjadi lebih terarah dan konsisten.
 
 ### 1.1 One-Liner
 > "Dari ide liar ke context terstruktur dalam hitungan menit"
@@ -22,7 +24,7 @@ Menjadi "second brain" untuk vibe coding workflow, di mana setiap project memili
 **The Core Promise**
 > "15 menit setup = AI yang 10x lebih efektif"
 
-Vibe Context Hub mengubah chaos vibe coding menjadi workflow terstruktur yang tetap cepat.
+Crafthink mengubah chaos vibe coding menjadi workflow terstruktur yang tetap cepat.
 
 #### Value Proposition Canvas
 
@@ -283,28 +285,39 @@ Tool ini ditargetkan untuk profesional non-engineering yang ingin merealisasikan
 | **Browser support** | Chrome, Firefox, Safari (modern) |
 | **Responsive** | Desktop-first, tablet-friendly |
 
-### 7.3 Current Implementation Status (v0.2.0)
-**Status:** 🟢 Live / In Development
+### 7.3 Current Implementation Status (v1.0.0)
+**Status:** 🟢 **LIVE** at [crafthink.vercel.app](https://crafthink.vercel.app)
 
-#### Completed Features (as of Jan 2026)
+#### Deployment Info
+| Item | Value |
+| :--- | :--- |
+| **Hosting** | Vercel (Free Tier) |
+| **URL** | https://crafthink.vercel.app |
+| **Storage** | localStorage (client-side) |
+| **Auto-Deploy** | Yes (on git push to main) |
+
+#### Completed Features (as of 4 Jan 2026)
 | Module | Feature | Status |
 | :--- | :--- | :--- |
 | **Project Hub** | Create/Switch/Auto-save | ✅ Complete |
 | **PRD Generator** | Brain Dump Form + Markdown Gen | ✅ Complete |
 | **Flowchart** | Nodes, Edges, Undo/Redo, Auto-Layout | ✅ Complete |
 | **Wireframe** | Infinite Canvas + Presets + Duplication | ✅ Complete |
-| **Context Bundle** | Generate + Copy to Clipboard | ✅ Complete |
+| **Context Bundle** | Generate + Copy to Clipboard + Download | ✅ Complete |
+| **Deployment** | Vercel + Auto CI/CD | ✅ Complete |
 
 #### Wireframe Keyboard Shortcuts
 | Action | Windows/Linux | Mac |
 | :--- | :--- | :--- |
 | **Select Tool** | `V` | `V` |
 | **Hand Tool** | `H` | `H` |
+| **Frame Tool** | `F` | `F` |
 | **Rectangle** | `R` | `R` |
 | **Circle** | `O` | `O` |
 | **Text** | `T` | `T` |
 | **Line** | `L` | `L` |
 | **Arrow** | `A` | `A` |
+| **Toggle Grid** | `G` | `G` |
 | **Pan Canvas** | `Space + Drag` | `Space + Drag` |
 | **Duplicate Artboard** | `Ctrl + D` | `Cmd + D` |
 | **Delete** | `Backspace` / `Del` | `Backspace` / `Del` |
@@ -315,6 +328,8 @@ Tool ini ditargetkan untuk profesional non-engineering yang ingin merealisasikan
   - `src/modules/wireframe`: Wireframe logic (`react-konva`).
   - `src/stores`: Zustand stores for global state.
 - **Run Local**: `npm run dev`
+- **Build**: `npm run build`
+- **Deploy**: `git push origin main` (auto-deploy via Vercel)
 
 ---
 
@@ -474,4 +489,4 @@ Use Context7 untuk up-to-date documentation yang optimized untuk AI coding:
 
 ---
 
-> **Last updated:** 3 Januari 2026
+> **Last updated:** 4 Januari 2026
