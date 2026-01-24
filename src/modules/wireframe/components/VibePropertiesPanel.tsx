@@ -2,10 +2,9 @@ import React from 'react'
 import {
     AlignLeft, AlignCenter, AlignRight,
     ArrowUpToLine, ArrowDownToLine, Minus, // Safe fallbacks for vertical alignment
-    Layout, Type, Droplet, Move, Square, Box, Grid,
-    ArrowDown, ArrowRight // Used in component body
+    Layout, Type
 } from 'lucide-react'
-import type { WireframeNode, LayoutConfig } from '../../../stores/wireframeStore'
+import type { WireframeNode, LayoutConfig, Constraints } from '../../../stores/wireframeStore'
 
 interface VibePropertiesPanelProps {
     selectedNode: WireframeNode | null
@@ -30,6 +29,9 @@ interface VibePropertiesPanelProps {
     // Alignment Actions
     onAlign: (type: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => void
     onDistribute: (type: 'horizontal' | 'vertical') => void
+
+    // Constraints
+    onUpdateConstraints?: (constraints: Constraints) => void
 }
 
 export const VibePropertiesPanel: React.FC<VibePropertiesPanelProps> = ({
@@ -50,7 +52,8 @@ export const VibePropertiesPanel: React.FC<VibePropertiesPanelProps> = ({
     layout,
     onUpdateLayout,
     onAlign,
-    onDistribute
+    onDistribute: _onDistribute,
+    onUpdateConstraints
 }) => {
 
     // Helper to render section dividers
@@ -136,6 +139,46 @@ export const VibePropertiesPanel: React.FC<VibePropertiesPanelProps> = ({
                             </div>
                         </div>
                     )}
+                    <Divider />
+                </div>
+            )}
+
+
+
+            {/* Constraints Section */}
+            {selectedNode && !selectedArtboard && (
+                <div className="px-4">
+                    <span className="text-xs font-bold mb-2 block">Constraints</span>
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                        <div>
+                            <label className="text-[10px] text-[#888] block mb-1">Horizontal</label>
+                            <select
+                                className="w-full bg-[#252525] border border-[#333] rounded text-xs py-1 px-1 outline-none text-[#ccc]"
+                                value={selectedNode.constraints?.horizontal || 'left'}
+                                onChange={(e) => onUpdateConstraints?.({ ...selectedNode.constraints, horizontal: e.target.value as any } as Constraints)}
+                            >
+                                <option value="left">Left</option>
+                                <option value="right">Right</option>
+                                <option value="center">Center</option>
+                                <option value="scale">Scale</option>
+                                <option value="left_right">Left & Right</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-[10px] text-[#888] block mb-1">Vertical</label>
+                            <select
+                                className="w-full bg-[#252525] border border-[#333] rounded text-xs py-1 px-1 outline-none text-[#ccc]"
+                                value={selectedNode.constraints?.vertical || 'top'}
+                                onChange={(e) => onUpdateConstraints?.({ ...selectedNode.constraints, vertical: e.target.value as any } as Constraints)}
+                            >
+                                <option value="top">Top</option>
+                                <option value="bottom">Bottom</option>
+                                <option value="center">Center</option>
+                                <option value="scale">Scale</option>
+                                <option value="top_bottom">Top & Bottom</option>
+                            </select>
+                        </div>
+                    </div>
                     <Divider />
                 </div>
             )}

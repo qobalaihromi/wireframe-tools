@@ -10,6 +10,14 @@ export interface LayoutConfig {
     align: 'start' | 'center' | 'end' | 'space-between'
 }
 
+export type HorizontalConstraint = 'left' | 'right' | 'center' | 'scale' | 'left_right'
+export type VerticalConstraint = 'top' | 'bottom' | 'center' | 'scale' | 'top_bottom'
+
+export interface Constraints {
+    horizontal: HorizontalConstraint
+    vertical: VerticalConstraint
+}
+
 export interface WireframeNode {
     id: string
     type: ShapeType
@@ -43,6 +51,7 @@ export interface WireframeNode {
     children?: WireframeNode[]
     collapsed?: boolean
     layout?: LayoutConfig
+    constraints?: Constraints // Resizing Constraints
 }
 
 export interface Artboard {
@@ -96,6 +105,82 @@ const enforceLayout = (children: WireframeNode[], layout: LayoutConfig, parentWi
 
     return sorted.map(child => {
         const updates: Partial<WireframeNode> = {}
+
+        // Constraint Application Helper
+        const applyConstraints = (children: WireframeNode[], oldWidth: number, oldHeight: number, newWidth: number, newHeight: number): WireframeNode[] => {
+            return children.map(child => {
+                const constraints = child.constraints || { horizontal: 'left', vertical: 'top' }
+                let newX = child.x
+                let newY = child.y
+                let newW = child.width
+                let newH = child.height
+
+                // Horizontal Constraint Logic
+                switch (constraints.horizontal) {
+                    case 'right':
+                        // X follows right edge
+                        newX = newWidth - (oldWidth - (child.x + child.width)) - child.width
+                        break
+                    case 'center':
+                        // X keeps relative center percentage or absolute offset? Figma uses:
+                        // newX = oldX + (newWidth - oldWidth) / 2
+                        newX = child.x + (newWidth - oldWidth) / 2
+                        break
+                    case 'scale':
+                        // Scale position and size
+                        const scaleX = newWidth / oldWidth
+                        newX = child.x * scaleX
+                        newW = child.width * scaleX
+                        break
+                    case 'left_right':
+                        // Pin Left and Right (Stretch width)
+                        // Left is pinned (same x), Right is pinned
+                        // newWidthChild = newParentWidth - x - (oldParentWidth - (x + w))
+                        newW = newWidth - child.x - (oldWidth - (child.x + child.width))
+                        break
+                    case 'left':
+                    default:
+                        // Default: Pin Left (no change to x)
+                        break
+                }
+
+                // Vertical Constraint Logic
+                switch (constraints.vertical) {
+                    case 'bottom':
+                        newY = newHeight - (oldHeight - (child.y + child.height)) - child.height
+                        break
+                    case 'center':
+                        newY = child.y + (newHeight - oldHeight) / 2
+                        break
+                    case 'scale':
+                        const scaleY = newHeight / oldHeight
+                        newY = child.y * scaleY
+                        newH = child.height * scaleY
+                        break
+                    case 'top_bottom':
+                        newH = newHeight - child.y - (oldHeight - (child.y + child.height))
+                        break
+                    case 'top':
+                    default:
+                        break
+                }
+
+                // Recursive calculation if this child is a frame/group
+                let updatedChildren = child.children
+                if (updatedChildren && (newW !== child.width || newH !== child.height)) {
+                    updatedChildren = applyConstraints(updatedChildren, child.width, child.height, newW, newH)
+                }
+
+                return {
+                    ...child,
+                    x: newX,
+                    y: newY,
+                    width: newW,
+                    height: newH,
+                    children: updatedChildren
+                }
+            })
+        }
 
         if (layout.type === 'vertical') {
             updates.y = currentPos
@@ -767,8 +852,8 @@ export const useWireframeStore = create<WireframeState>()(
                 const defaultX = lastArtboard ? lastArtboard.x + lastArtboard.width + 100 : 0
 
                 // Recursive helper to parse AI nodes
-                const parseNodes = (nodes: any[], parentId: string | null = null): WireframeNode[] => {
-                    return nodes.map((shape, index) => {
+                const parseNodes = (nodes: any[], _parentId: string | null = null): WireframeNode[] => {
+                    return nodes.map((shape, _index) => {
                         const nodeId = `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
                         let children: WireframeNode[] = []

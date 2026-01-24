@@ -1,7 +1,6 @@
 import {
-    Square, Circle, Type, MousePointer2, Minus, ArrowRight, Frame, Hand, PenTool, Hash
+    Square, Circle, Type, MousePointer2, Hand, PenTool, Hash
 } from 'lucide-react'
-import { useState } from 'react'
 import type { ShapeType } from '../../../stores/wireframeStore'
 
 interface ToolItem {

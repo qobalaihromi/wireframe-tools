@@ -54,7 +54,7 @@ export function WireframeToolbar({
             <div className="flex items-center gap-2">
                 {currentArtboard && (
                     <span className="text-sm text-[#6a6a6a]">
-                        {currentArtboard.shapes.length} shapes
+                        {currentArtboard.children.length} shapes
                     </span>
                 )}
 

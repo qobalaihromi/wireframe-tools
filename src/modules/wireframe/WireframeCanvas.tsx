@@ -1,5 +1,6 @@
 import { useRef, useCallback, useEffect, useState, forwardRef, useImperativeHandle } from 'react'
-import { ContextMenu, ContextMenuAction } from './components/ContextMenu'
+import { ContextMenu } from './components/ContextMenu'
+import type { ContextMenuAction } from './components/ContextMenu'
 import { Stage, Layer, Transformer, Rect, Line, Circle } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type Konva from 'konva'
@@ -14,6 +15,7 @@ interface WireframeCanvasProps {
     onStageChange: (scale: number, pos: { x: number, y: number }) => void
 
     selectedShapeId: string | null
+    selectedShapeIds: string[]  // For multi-select
     selectedArtboardId: string | null
     selectedTool: ShapeType | 'select' | 'hand' | 'frame'
     fillColor: string
@@ -25,7 +27,7 @@ interface WireframeCanvasProps {
     borderRadius: number
     fontSize: number
 
-    onShapeSelect: (shapeId: string | null) => void
+    onShapeSelect: (shapeId: string | null, isMultiSelect?: boolean) => void
     onArtboardSelect: (artboardId: string | null) => void
     onMultiSelect?: (shapeIds: string[], artboardIds: string[]) => void
     onAddNode: (artboardId: string, node: WireframeNode) => void
@@ -52,6 +54,7 @@ export const WireframeCanvas = forwardRef<WireframeCanvasRef, WireframeCanvasPro
     stagePosition,
     onStageChange,
     selectedShapeId,
+    selectedShapeIds,
     selectedArtboardId,
     selectedTool,
     fillColor,
@@ -242,12 +245,8 @@ export const WireframeCanvas = forwardRef<WireframeCanvasRef, WireframeCanvasPro
         const artboardGroup = node.findAncestor('.artboard') as Konva.Group
         if (!artboardGroup) return // Should not happen if dragged item is inside artboard
 
-        const artboardId = artboardGroup.getAttr('id') // We store artboard ID in group attrs? Need to check ArtboardFrame.
-        // Actually ArtboardFrame likely doesn't set ID as attr by default, let's assume we can get it from react props or store
-        // But wait, here we only have Konva node.
-        // Let's rely on looking up artboards by position first?
-        // Or better: Assume the `handleNodeDragMove` logic which knows the artboardId passed to it.
-        // But `handleNodeDragEnd` is attached to Node items.
+        // Note: artboardId could be obtained here via artboardGroup.getAttr('id') if needed
+        // For now, we rely on looking up artboards by position instead
 
         // Let's use the absolute position center to find the target container
         const absPos = node.getAbsolutePosition()
@@ -755,40 +754,203 @@ export const WireframeCanvas = forwardRef<WireframeCanvasRef, WireframeCanvasPro
         return { selectedShapeIds, selectedArtboardIds }
     }
 
-    const handleMouseDown = (e: KonvaEventObject<MouseEvent>) => {
-        const stage = stageRef.current
-        if (!stage) return
-        const pos = stage.getPointerPosition()
-        if (!pos) return
-        const x = (pos.x - stagePosition.x) / stageScale
-        const y = (pos.y - stagePosition.y) / stageScale
+    // Shape Drawing State
+    const [drawingShapeId, setDrawingShapeId] = useState<string | null>(null)
+    const [drawingStart, setDrawingStart] = useState<{ x: number, y: number } | null>(null)
+    const [drawingArtboardId, setDrawingArtboardId] = useState<string | null>(null)
 
-        // Frame drawing mode
-        if (selectedTool === 'frame') {
-            setIsDrawingFrame(true)
-            setFrameStart({ x, y })
-            setFramePreview({ x, y, width: 0, height: 0 })
+    // Helper to get pointer position relative to the stage's content (unscaled, unpanned)
+    const getRelativePointerPosition = (stage: Konva.Stage) => {
+        const pos = stage.getPointerPosition()
+        if (!pos) return { x: 0, y: 0 } // Fallback
+        return {
+            x: (pos.x - stagePosition.x) / stageScale,
+            y: (pos.y - stagePosition.y) / stageScale,
+        }
+    }
+
+    const handleMouseDown = (e: KonvaEventObject<MouseEvent>) => {
+        const stage = e.target.getStage()
+        if (!stage) return
+
+        // 1. Context Menu Check (already handled by onContextMenu, but ensure we don't conflict)
+        if (e.evt.button === 2) return // Right click
+
+        // 2. Identify Target
+        const clickedNode = e.target
+        const isBackground = clickedNode === stage
+        const clickedArtboard = clickedNode.findAncestor('.artboard')
+        const clickedArtboardId = clickedArtboard?.id()
+
+        // 3. Tool Logic
+        if (selectedTool === 'hand') {
+            // Handled by draggable stage
             return
         }
 
-        // Marquee selection: Only start if clicking on empty stage area
+        if (selectedTool === 'frame') {
+            // Start Drawing Frame
+            const pos = getRelativePointerPosition(stage)
+            setIsDrawingFrame(true)
+            setFrameStart(pos)
+            setFramePreview({ x: pos.x, y: pos.y, width: 0, height: 0 })
+            // Deselect everything
+            onShapeSelect(null)
+            onArtboardSelect(null)
+            onMultiSelect?.([], [])
+            return
+        }
+
+        if (['rect', 'circle', 'text', 'button', 'input', 'card', 'line', 'arrow'].includes(selectedTool)) {
+            // Start Drawing Shape (Drag-to-Draw)
+            const pos = getRelativePointerPosition(stage)
+
+            // Determine target artboard: either clicked on one, or current selected, or none (root?)
+            // For now, if we click ON an artboard, we add to it. If outside, we might create a new artboard or just fail? 
+            // Vibe Rules: Shapes must be in Artboards? Or infinite canvas? 
+            // Current `addNode` requires artboardId.
+            // If no artboard is clicked, we can't draw a shape (unless we auto-create one, but let's stick to existing rules)
+
+            let targetId = clickedArtboardId
+            if (!targetId && artboards.length > 0) {
+                // Fallback: If we are 'near' an artboard? Or just use the first/selected one?
+                // Let's enforce clicking ON an artboard for now to be safe, or just use selectedArtboardId if valid
+                targetId = selectedArtboardId || artboards[0].id
+            }
+
+            if (targetId) {
+                const artboard = artboards.find(a => a.id === targetId)
+                if (artboard) {
+                    setIsDrawingFrame(false) // Safety
+
+                    // Add Node with 0 size
+                    // We need a way to know the ID of the node we just added. 
+                    // `onAddNode` is void. We might need to generate ID here or change `onAddNode` ref?
+                    // Actually `WireframeStore` generates ID. 
+                    // Challenge: We can't immediately update it if we don't know the ID.
+                    // Solution: Generate ID here and pass it recursively? Or use a predictable ID strategy.
+                    // Let's generate a temporary ID here to pass to addNode if the store supports it?
+                    // The store `addNode` takes a full node. So we CAN generate the ID here!
+
+                    const newId = `shape_${Date.now()}`
+                    const relativeX = pos.x - artboard.x
+                    const relativeY = pos.y - artboard.y
+
+                    const newNode: WireframeNode = {
+                        id: newId,
+                        type: selectedTool as ShapeType,
+                        name: selectedTool.charAt(0).toUpperCase() + selectedTool.slice(1),
+                        x: relativeX,
+                        y: relativeY,
+                        width: 1, // Start small to avoid 0 flickering
+                        height: 1,
+                        rotation: 0,
+                        opacity: opacity,
+                        visible: true,
+                        locked: false,
+                        fill: fillColor,
+                        stroke: strokeColor,
+                        strokeWidth: strokeWidth,
+                        text: (selectedTool === 'text' || selectedTool === 'button') ? 'Text' : undefined,
+                        borderRadius: (selectedTool === 'rect' || selectedTool === 'button' || selectedTool === 'input' || selectedTool === 'card') ? borderRadius : undefined,
+                        fontSize: fontSize,
+                        points: (selectedTool === 'line' || selectedTool === 'arrow') ? [0, 0, 1, 0] : undefined, // Start with minimal line
+                        children: []
+                    }
+
+                    onAddNode(targetId, newNode)
+
+                    setDrawingShapeId(newId)
+                    setDrawingArtboardId(targetId)
+                    setDrawingStart({ x: relativeX, y: relativeY })
+                }
+            }
+            return
+        }
+
+        // 4. Selection Logic (Select Tool)
         if (selectedTool === 'select') {
-            const clickedOnEmpty = e.target === e.target.getStage()
-            if (clickedOnEmpty) {
+            // If clicked on empty stage -> Marquee
+            if (isBackground) {
+                const pos = getRelativePointerPosition(stage)
                 setIsMarqueeSelecting(true)
-                setMarqueeStart({ x, y })
-                setMarqueeRect({ x, y, width: 0, height: 0 })
+                setMarqueeStart(pos)
+                setMarqueeRect({ x: pos.x, y: pos.y, width: 0, height: 0 })
+
+                // Clear selection if not partial? 
+                // Figma: Click on BG clears selection immediately unless Shift is held?
+                if (!e.evt.shiftKey) {
+                    onShapeSelect(null)
+                    onArtboardSelect(null)
+                    onMultiSelect?.([], [])
+                }
+                return
+            }
+
+            // Clicked on a Node or Artboard
+            const clickedId = clickedNode.id()
+            const isArtboardReq = clickedNode.hasName('artboard-bg') || clickedNode.hasName('artboard-label')
+
+            // Shift + Click Logic for multi-select toggle
+            if (e.evt.shiftKey) {
+                if (isArtboardReq) {
+                    // Toggle artboard selection (not commonly needed, but supported)
+                    onArtboardSelect(clickedArtboardId)
+                    return
+                }
+
+                if (clickedId) {
+                    // Toggle shape in/out of selection
+                    // We now have selectedShapeIds array from props
+                    const isAlreadySelected = selectedShapeIds.includes(clickedId)
+
+                    if (isAlreadySelected) {
+                        // Remove from selection
+                        const newSelection = selectedShapeIds.filter(id => id !== clickedId)
+                        if (newSelection.length > 0) {
+                            onMultiSelect?.(newSelection, [])
+                            onShapeSelect(newSelection[0]) // Keep first as primary
+                        } else {
+                            onShapeSelect(null)
+                            onMultiSelect?.([], [])
+                        }
+                    } else {
+                        // Add to selection
+                        const newSelection = [...selectedShapeIds, clickedId]
+                        onMultiSelect?.(newSelection, [])
+                        onShapeSelect(clickedId) // Set as primary
+                    }
+
+                    if (clickedArtboardId) onArtboardSelect(clickedArtboardId)
+                    return
+                }
+            } else {
+                // Normal Click (single select)
+                if (isArtboardReq) {
+                    // Clicked Artboard
+                    onArtboardSelect(clickedArtboardId)
+                    onShapeSelect(null)
+                    onMultiSelect?.([], [])
+                    return
+                }
+
+                // Node Click - single select (clear multi-select)
+                if (clickedId) {
+                    onShapeSelect(clickedId)
+                    onMultiSelect?.([clickedId], [])
+                    if (clickedArtboardId) onArtboardSelect(clickedArtboardId)
+                }
             }
         }
     }
 
-    const handleMouseMove = () => {
-        const stage = stageRef.current
+    const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
+        const stage = e.target.getStage()
         if (!stage) return
-        const pos = stage.getPointerPosition()
-        if (!pos) return
-        const x = (pos.x - stagePosition.x) / stageScale
-        const y = (pos.y - stagePosition.y) / stageScale
+
+        const pos = getRelativePointerPosition(stage)
+        const x = pos.x
+        const y = pos.y
 
         // Frame drawing
         if (isDrawingFrame && frameStart) {
@@ -797,6 +959,33 @@ export const WireframeCanvas = forwardRef<WireframeCanvasRef, WireframeCanvasPro
                 y: Math.min(frameStart.y, y),
                 width: Math.abs(x - frameStart.x),
                 height: Math.abs(y - frameStart.y),
+            })
+            return
+        }
+
+        // Shape drawing (Drag-to-Draw)
+        if (drawingShapeId && drawingArtboardId && drawingStart) {
+            // Find the artboard to get its position
+            const artboard = artboards.find(a => a.id === drawingArtboardId)
+            if (!artboard) return
+
+            // Convert absolute stage position to artboard-relative coordinates
+            const relativeX = x - artboard.x
+            const relativeY = y - artboard.y
+
+            const newWidth = Math.abs(relativeX - drawingStart.x)
+            const newHeight = Math.abs(relativeY - drawingStart.y)
+            const newX = Math.min(drawingStart.x, relativeX)
+            const newY = Math.min(drawingStart.y, relativeY)
+
+            // Update the node's position and size
+            onUpdateNode(drawingArtboardId, drawingShapeId, {
+                x: newX,
+                y: newY,
+                width: newWidth > 0 ? newWidth : 1,
+                height: newHeight > 0 ? newHeight : 1,
+                // For lines/arrows, update points instead of width/height
+                points: (selectedTool === 'line' || selectedTool === 'arrow') ? [0, 0, newWidth, newHeight] : undefined
             })
             return
         }
@@ -817,7 +1006,7 @@ export const WireframeCanvas = forwardRef<WireframeCanvasRef, WireframeCanvasPro
         }
     }
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (_e: KonvaEventObject<MouseEvent>) => {
         // Frame drawing
         if (isDrawingFrame && framePreview) {
             if (framePreview.width > 50 && framePreview.height > 50) {
@@ -826,6 +1015,15 @@ export const WireframeCanvas = forwardRef<WireframeCanvasRef, WireframeCanvasPro
             setIsDrawingFrame(false)
             setFrameStart(null)
             setFramePreview(null)
+            return
+        }
+
+        // Shape drawing finalization
+        if (drawingShapeId) {
+            setDrawingShapeId(null)
+            setDrawingStart(null)
+            setDrawingArtboardId(null)
+            // Optionally reset tool to select here if desired
             return
         }
 
@@ -1104,4 +1302,4 @@ export const WireframeCanvas = forwardRef<WireframeCanvasRef, WireframeCanvasPro
         </div>
     )
 })
-    ```
+

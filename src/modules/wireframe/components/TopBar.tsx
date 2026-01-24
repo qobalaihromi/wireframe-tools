@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutGrid, Paintbrush, Grid3X3, ZoomIn, ZoomOut, Download, ChevronDown, Undo2, Redo2 } from 'lucide-react'
+import { Grid3X3, ZoomIn, ZoomOut, Download, ChevronDown, Undo2, Redo2 } from 'lucide-react'
 
 // Editor Mode removed, defaulted to Design
 

@@ -62,6 +62,51 @@ export function WireframeBuilder() {
     const [fontSize, setFontSize] = useState(16)
 
 
+    // Helper: Generate nodes from a component template
+    const generateNodesFromTemplate = (template: any): WireframeNode[] => {
+        // If template has a 'nodes' array, return them; otherwise wrap single template as node
+        if (template.nodes && Array.isArray(template.nodes)) {
+            return template.nodes.map((n: any, idx: number) => ({
+                id: `node_${Date.now()}_${idx}`,
+                name: n.name || n.type || 'Element',
+                type: n.type || 'rect',
+                x: n.x || 0,
+                y: n.y || 0,
+                width: n.width || 100,
+                height: n.height || 50,
+                rotation: 0,
+                opacity: 1,
+                visible: true,
+                locked: false,
+                fill: n.fill || '#ffffff',
+                stroke: n.stroke || '#333333',
+                strokeWidth: n.strokeWidth || 1,
+                text: n.text,
+                children: []
+            }))
+        }
+
+        // Single component template
+        return [{
+            id: `node_${Date.now()}`,
+            name: template.name || 'Component',
+            type: template.type || 'rect',
+            x: 0,
+            y: 0,
+            width: template.defaultWidth || template.width || 100,
+            height: template.defaultHeight || template.height || 50,
+            rotation: 0,
+            opacity: 1,
+            visible: true,
+            locked: false,
+            fill: template.fill || '#ffffff',
+            stroke: template.stroke || '#333333',
+            strokeWidth: template.strokeWidth || 1,
+            text: template.text,
+            children: []
+        }]
+    }
+
     const handleDropComponent = useCallback((template: any, artboardId: string | null, x: number, y: number) => {
         if (!currentProject || !artboardId) return
 
@@ -142,10 +187,36 @@ export function WireframeBuilder() {
         setSelectedTool('select')
     }, [currentProject, addNode, takeSnapshot])
 
-    // Update single-selection-based helper
-    const handleShapeSelect = useCallback((id: string | null) => {
-        setSelectedShapeId(id)
-        setSelectedShapeIds(id ? [id] : [])
+    // Update selection helper
+    const handleShapeSelect = useCallback((id: string | null, isMultiSelect = false) => {
+        if (!isMultiSelect) {
+            setSelectedShapeId(id)
+            setSelectedShapeIds(id ? [id] : [])
+        } else {
+            if (!id) return // Don't allow null toggle
+            setSelectedShapeIds(prev => {
+                const alreadySelected = prev.includes(id)
+                let newSelection
+                if (alreadySelected) {
+                    newSelection = prev.filter(selId => selId !== id)
+                } else {
+                    newSelection = [...prev, id]
+                }
+
+                // Update primary selection ID to last valid one, or clicked one
+                if (newSelection.length > 0) {
+                    // If we just added, make it primary? Or keep partial?
+                    // Usually primary is the one being manipulated. 
+                    // Let's make the last one manipulated the primary.
+                    if (!alreadySelected) setSelectedShapeId(id)
+                    else setSelectedShapeId(newSelection[newSelection.length - 1])
+                } else {
+                    setSelectedShapeId(null)
+                }
+
+                return newSelection
+            })
+        }
     }, [])
 
     const handleUpdateNode = useCallback((artboardId: string, nodeId: string, updates: Partial<WireframeNode>) => {
@@ -410,6 +481,7 @@ export function WireframeBuilder() {
                         setStagePosition(pos)
                     }}
                     selectedShapeId={selectedShapeId}
+                    selectedShapeIds={selectedShapeIds}
                     selectedArtboardId={selectedArtboardId}
                     selectedTool={spacePressed ? 'hand' : selectedTool}
                     fillColor={fillColor}
@@ -417,7 +489,7 @@ export function WireframeBuilder() {
                     strokeWidth={strokeWidth}
                     opacity={opacity}
 
-                    onShapeSelect={handleShapeSelect}
+                    onShapeSelect={(id, isMultiSelect) => handleShapeSelect(id, isMultiSelect)}
                     onArtboardSelect={setSelectedArtboardId}
                     onMultiSelect={handleMultiSelect}
                     onAddNode={handleAddNode}
@@ -524,6 +596,12 @@ export function WireframeBuilder() {
                                 onUpdateLayout={handleUpdateLayout}
                                 onAlign={handleAlign}
                                 onDistribute={handleDistribute}
+                                onUpdateConstraints={(constraints) => {
+                                    if (selectedShapeId && selectedArtboardId) {
+                                        takeSnapshot()
+                                        handleUpdateNode(selectedArtboardId, selectedShapeId, { constraints })
+                                    }
+                                }}
                             />
                         </div>
                     </div>

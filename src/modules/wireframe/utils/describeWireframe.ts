@@ -1,11 +1,11 @@
-import type { Shape } from '../../../stores/wireframeStore'
+import type { WireframeNode } from '../../../stores/wireframeStore'
 
-export function generateWireframeDescription(artboardName: string, shapes: Shape[]): string {
-    if (shapes.length === 0) {
+export function generateWireframeDescription(artboardName: string, nodes: WireframeNode[]): string {
+    if (nodes.length === 0) {
         return `## Wireframe: ${artboardName}\n(Empty Artboard)`
     }
 
-    const shapeDescriptions = shapes.map(shape => {
+    const shapeDescriptions = nodes.map(shape => {
         const position = `(x: ${Math.round(shape.x)}, y: ${Math.round(shape.y)})`
         let details = ''
 

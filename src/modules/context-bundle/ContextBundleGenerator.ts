@@ -43,7 +43,7 @@ export async function generateContextBundle(projectId: string, projectName: stri
     bundle += `## 3. WIREFRAMES\n\n`
     if (artboards.length > 0) {
         artboards.forEach(artboard => {
-            bundle += generateWireframeDescription(artboard.name, artboard.shapes)
+            bundle += generateWireframeDescription(artboard.name, artboard.children || [])
             bundle += `\n\n`
         })
     } else {

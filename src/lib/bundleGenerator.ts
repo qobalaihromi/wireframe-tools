@@ -108,8 +108,8 @@ _Flowchart belum dibuat. Silakan buat flowchart terlebih dahulu._
     if (data.artboards.length > 0) {
         const artboardDescriptions = data.artboards
             .map(a => {
-                const shapeDescriptions = a.shapes.length > 0
-                    ? a.shapes.map(s => `  - ${s.type}${s.text ? `: "${s.text}"` : ''} at (${Math.round(s.x)}, ${Math.round(s.y)})`).join('\n')
+                const shapeDescriptions = a.children.length > 0
+                    ? a.children.map((s: any) => `  - ${s.type}${s.text ? `: "${s.text}"` : ''} at (${Math.round(s.x)}, ${Math.round(s.y)})`).join('\n')
                     : '  _Tidak ada elemen_'
                 return `### ${a.name} (${a.width}x${a.height})
 ${shapeDescriptions}`
@@ -224,6 +224,6 @@ export function generateQuickSummary(data: BundleData): {
         featuresCount: data.prd?.coreFeatures.filter(f => f.trim()).length || 0,
         nodesCount: data.flowchart?.nodes.length || 0,
         artboardsCount: data.artboards.length,
-        shapesCount: data.artboards.reduce((sum, a) => sum + a.shapes.length, 0),
+        shapesCount: data.artboards.reduce((sum, a) => sum + (a.children?.length || 0), 0),
     }
 }
