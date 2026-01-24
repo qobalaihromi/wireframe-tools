@@ -11,12 +11,13 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { useProjectStore } from '../../stores/projectStore'
+import { useVibeStore } from '../../stores/vibeStore'
 
 const menuItems = [
     { id: 'project-hub' as const, label: 'Projects', icon: FolderOpen },
     { id: 'prd' as const, label: 'PRD', icon: FileText },
     { id: 'flowchart' as const, label: 'Flowchart', icon: GitBranch },
-    { id: 'wireframe' as const, label: 'Wireframe', icon: PenTool },
+    { id: 'wireframe' as const, label: 'Design', icon: PenTool },
     { id: 'bundle' as const, label: 'Export', icon: Package },
 ]
 
@@ -55,6 +56,7 @@ export function Sidebar() {
           
           /* Desktop: Collapsible width */
           ${sidebarOpen ? 'w-56' : 'md:w-16 w-56'}
+          shrink-0
         `}
             >
                 {/* Logo */}
@@ -113,6 +115,26 @@ export function Sidebar() {
                         )
                     })}
                 </nav>
+
+                {/* Vibe Settings */}
+                <div className="px-2 pb-2">
+                    <button
+                        onClick={() => useVibeStore.getState().toggleVibe(true)}
+                        className={`
+                            w-full flex items-center gap-3 px-4 py-3 text-left
+                            text-[#a1a1aa] hover:bg-[#252525] hover:text-white
+                            transition-colors duration-150 rounded-lg
+                            bg-gradient-to-r from-transparent hover:from-[#6366f1]/10
+                        `}
+                    >
+                        <span className="text-xl">✨</span>
+                        {(sidebarOpen || window.innerWidth < 768) && (
+                            <span className="text-sm font-medium bg-gradient-to-r from-[#a1a1aa] to-[#fff] bg-clip-text text-transparent group-hover:from-[#6366f1] group-hover:to-[#a5b4fc]">
+                                Vibe Settings
+                            </span>
+                        )}
+                    </button>
+                </div>
 
                 {/* Toggle Button - Hidden on mobile */}
                 <button

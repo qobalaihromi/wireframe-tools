@@ -6,6 +6,8 @@ import { FlowchartEditor } from './modules/flowchart/FlowchartEditor'
 import { WireframeBuilder } from './modules/wireframe/WireframeBuilder'
 import { ContextBundle } from './modules/context-bundle/ContextBundle'
 import { useAppStore } from './stores/appStore'
+import { VibeSettingsModal } from './components/vibe/VibeSettingsModal'
+import { VibeAssistant } from './modules/vibe-assistant/VibeAssistant'
 
 function App() {
   const activeModule = useAppStore((state) => state.activeModule)
@@ -36,6 +38,8 @@ function App() {
           {renderModule()}
         </main>
       </div>
+      <VibeSettingsModal />
+      <VibeAssistant />
     </div>
   )
 }

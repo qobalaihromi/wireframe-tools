@@ -115,7 +115,7 @@ export function BrainDumpForm({ onComplete }: BrainDumpFormProps) {
                             <textarea
                                 value={formData.problemStatement}
                                 onChange={(e) => updateField('problemStatement', e.target.value)}
-                                placeholder="Contoh: Designer kesulitan membuat dokumentasi terstruktur untuk AI coding..."
+                                placeholder="Contoh: Pembeli kesulitan menemukan produk yang sesuai kebutuhan. Proses checkout terlalu panjang dan ribet. Seller kesulitan tracking inventory dan pesanan..."
                                 className="w-full h-32 bg-[#252525] border border-[#2a2a2a] rounded-lg px-4 py-3 text-white placeholder-[#6a6a6a] focus:border-[#6366f1] focus:outline-none resize-none"
                                 autoFocus
                             />
@@ -136,7 +136,7 @@ export function BrainDumpForm({ onComplete }: BrainDumpFormProps) {
                             <textarea
                                 value={formData.targetUser}
                                 onChange={(e) => updateField('targetUser', e.target.value)}
-                                placeholder="Contoh: UI/UX Designer yang melakukan vibe coding dengan AI..."
+                                placeholder="Contoh: Online shoppers yang ingin belanja cepat via mobile. UMKM sellers yang baru mulai jualan online dan butuh platform simple..."
                                 className="w-full h-32 bg-[#252525] border border-[#2a2a2a] rounded-lg px-4 py-3 text-white placeholder-[#6a6a6a] focus:border-[#6366f1] focus:outline-none resize-none"
                                 autoFocus
                             />
@@ -241,7 +241,7 @@ export function BrainDumpForm({ onComplete }: BrainDumpFormProps) {
                             <textarea
                                 value={formData.techPreferences}
                                 onChange={(e) => updateField('techPreferences', e.target.value)}
-                                placeholder="Contoh: React + TypeScript, Supabase, Tailwind CSS, Vercel..."
+                                placeholder="Contoh: Next.js + TypeScript, Supabase, Midtrans/Stripe payment, Cloudinary CDN, Vercel..."
                                 className="w-full h-24 bg-[#252525] border border-[#2a2a2a] rounded-lg px-4 py-3 text-white placeholder-[#6a6a6a] focus:border-[#6366f1] focus:outline-none resize-none"
                             />
                         </div>
@@ -258,7 +258,7 @@ export function BrainDumpForm({ onComplete }: BrainDumpFormProps) {
                             <textarea
                                 value={formData.databaseSchema}
                                 onChange={(e) => updateField('databaseSchema', e.target.value)}
-                                placeholder="users: id, email, name&#10;projects: id, user_id, title&#10;wireframes: id, project_id, data"
+                                placeholder="users: id, email, role (buyer/seller)&#10;products: id, seller_id, name, price, stock&#10;orders: id, buyer_id, status, total&#10;cart_items: id, user_id, product_id, qty"
                                 className="w-full h-32 bg-[#252525] border border-[#2a2a2a] rounded-lg px-4 py-3 text-white placeholder-[#6a6a6a] focus:border-[#6366f1] focus:outline-none resize-none font-mono text-sm"
                             />
                         </div>
@@ -275,7 +275,7 @@ export function BrainDumpForm({ onComplete }: BrainDumpFormProps) {
                             <textarea
                                 value={formData.knownInfo || ''}
                                 onChange={(e) => updateField('knownInfo', e.target.value)}
-                                placeholder="Contoh: Style guide referensi, timeline deadline, batasan API..."
+                                placeholder="Contoh: Target market Indonesia. Payment via Midtrans. Referensi UI seperti Tokopedia/Shopee. MVP launch 2 minggu..."
                                 className="w-full h-32 bg-[#252525] border border-[#2a2a2a] rounded-lg px-4 py-3 text-white placeholder-[#6a6a6a] focus:border-[#6366f1] focus:outline-none resize-none"
                             />
                         </div>
@@ -290,27 +290,53 @@ export function BrainDumpForm({ onComplete }: BrainDumpFormProps) {
     return (
         <div className="max-w-2xl mx-auto">
             {/* Progress Steps */}
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center w-full mb-12 px-4">
                 {steps.map((step, index) => {
                     const Icon = step.icon
                     const isActive = index === currentStep
                     const isCompleted = index < currentStep
+                    const isLineActive = index <= currentStep
 
                     return (
-                        <div key={step.id} className="flex flex-col items-center">
-                            <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-colors ${isActive
-                                    ? 'bg-[#6366f1] text-white'
-                                    : isCompleted
-                                        ? 'bg-green-500/20 text-green-400'
-                                        : 'bg-[#252525] text-[#6a6a6a]'
-                                    }`}
-                            >
-                                <Icon size={18} />
+                        <div key={step.id} className={`flex items-center ${index === 0 ? '' : 'flex-1'} min-w-[fit-content]`}>
+
+                            {/* Connector Line (Interlevaed) */}
+                            {index > 0 && (
+                                <div className="flex-1 h-1 bg-[#2a2a2a] relative -mx-4 z-0">
+                                    <div
+                                        className="h-full bg-[#6366f1] transition-all duration-500 ease-out origin-left"
+                                        style={{
+                                            width: isLineActive ? '100%' : '0%'
+                                        }}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Step Item */}
+                            <div className="relative flex flex-col items-center z-10 text-center min-w-[60px]">
+                                <div
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-[3px] relative z-20 ${isActive
+                                        ? 'bg-[#6366f1] border-[#6366f1] text-white shadow-[0_0_20px_rgba(99,102,241,0.6)] scale-110'
+                                        : isCompleted
+                                            ? 'bg-[#1a1a1a] border-[#6366f1] text-[#6366f1]'
+                                            : 'bg-[#1a1a1a] border-[#2a2a2a] text-[#4a4a4a]'
+                                        }`}
+                                >
+                                    {isCompleted ? (
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    ) : (
+                                        <Icon size={18} strokeWidth={2.5} />
+                                    )}
+                                </div>
+                                <span
+                                    className={`absolute top-full mt-3 text-xs whitespace-nowrap font-semibold transition-colors duration-300 left-1/2 -translate-x-1/2 ${isActive ? 'text-white' : isCompleted ? 'text-[#6366f1]' : 'text-[#4a4a4a]'
+                                        }`}
+                                >
+                                    {step.label}
+                                </span>
                             </div>
-                            <span className={`text-xs ${isActive ? 'text-white' : 'text-[#6a6a6a]'}`}>
-                                {step.label}
-                            </span>
                         </div>
                     )
                 })}

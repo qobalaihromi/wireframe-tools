@@ -205,6 +205,14 @@ Tool ini ditargetkan untuk profesional non-engineering yang ingin merealisasikan
 | **Copy to Clipboard** | One-click copy untuk paste ke AI |
 | **Download ZIP** | All assets dalam satu file |
 
+#### F6: Figma-like Capabilities (Phase 1 & 2)
+| Sub-feature | Status | Description |
+| :--- | :--- | :--- |
+| **True Frames** | ✅ | Group dengan clipping content (overflow hidden). |
+| **Auto Layout** | 🚧 | Flexbox engine (V/H stack, gap, padding). |
+| **Smart Reparenting** | ✅ | Drag shape masuk ke frame otomatis jadi anak (child). |
+| **Right Click Menu** | 📝 | Context menu: Group, Ungroup, Frame Selection, Add Auto Layout. |
+
 ### 5.2 Nice-to-Have (Post-MVP)
 *   AI-assisted PRD writing (OpenRouter integration)
 *   Database Schema Field - Text-based schema outline di PRD form
@@ -254,6 +262,7 @@ Tool ini ditargetkan untuk profesional non-engineering yang ingin merealisasikan
 *   **US-4.4**: Sebagai user, saya bisa resize dan move shapes
 *   **US-4.5**: Sebagai user, saya bisa export artboard sebagai PNG
 *   **US-4.6**: Sebagai user, saya bisa melihat auto-generated text description dari wireframe
+257: *   **US-4.7**: Sebagai user, saya bisa klik kanan untuk akses menu cepat (Group, Ungroup, Frame Selection)
 
 ### Epic 5: Context Bundle
 *   **US-5.1**: Sebagai user, saya bisa generate context bundle dari semua modules
@@ -490,3 +499,44 @@ Use Context7 untuk up-to-date documentation yang optimized untuk AI coding:
 ---
 
 > **Last updated:** 4 Januari 2026
+
+## 16. Strategy: Evolution to Localhost Figma
+
+### Vision
+Mengembangkan  menjadi alternatif Figma yang berjalan 100% di localhost (offline-first), open-source, dan berfokus pada kecepatan developer/designer.
+
+### Roadmap
+
+#### Phase 1: The Core Refactor (Current)
+*   **Goal**: Mengubah data model dari "Flat List" menjadi "Recursive Tree" (Page -> Frame -> Group -> Shape).
+*   **Why**: Diperlukan untuk nesting, grouping, dan auto-layout.
+
+#### Phase 2: Vector & Styling
+*   **Goal**: Menambahkan Pen Tool (Bezier curves) dan Advanced Styling (Shadows, Blurs, Gradients).
+*   **Why**: Agar bisa digunakan untuk UI Design properties, bukan hanya wireframe kasar.
+
+#### Phase 3: Localhost superpowers
+*   **Goal**: Save as  file, Local Font loading, Asset Management.
+*   **Why**: Memanfaatkan kelebihan "Localhost" dibanding web-based apps (Figma).
+
+## 17. Git Strategy & Deployment Rules
+
+### 17.1 Concept Branch Rules
+Branch ini digunakan untuk eksperimen fitur besar atau perubahan arsitektur yang berisiko (High Risk, High Reward).
+
+*   **Naming Convention:** `concept/<feature-name>` (contoh: `concept/recursive-tree`, `concept/vector-engine`)
+*   **Rules:**
+    *   Dibuat dari branch `dev` atau `main`.
+    *   **No Code Review Required** saat development masih fase eksplorasi.
+    *   **Disposable:** Jika eksperimen gagal, branch bisa dihapus tanpa merge.
+    *   **Merge Strategy:** Jika sukses, lakukan **Squash Merge** ke branch `dev` atau `main` agar history tetap bersih.
+
+### 17.2 Staging Rules
+Environment untuk testing final sebelum rilis ke production (Live).
+
+*   **Branch:** `staging`
+*   **Trigger:** Push ke branch `staging` otomatis deploy ke URL Staging (contoh: `crafthink-staging.vercel.app`).
+*   **Rules:**
+    *   **Strictly No Direct Push:** Harus via Pull Request (PR) dari `dev`.
+    *   **Database:** Menggunakan database replika/terpisah dari Production.
+    *   **Purpose:** User Acceptance Testing (UAT) dan Final QA.

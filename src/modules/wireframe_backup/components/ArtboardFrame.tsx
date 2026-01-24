@@ -1,15 +1,14 @@
 import React, { useState } from 'react'
-import { Rect, Text, Group } from 'react-konva'
+import { Rect, Text, Group, Line, Arrow, Circle } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { Artboard, WireframeNode } from '../../../stores/wireframeStore'
-import { NodeRenderer } from './NodeRenderer'
+import type { Artboard, Shape } from '../../../stores/wireframeStore'
 
 interface ArtboardFrameProps {
     artboard: Artboard
     isSelected?: boolean
     selectedShapeId: string | null
     onShapeSelect: (shapeId: string | null) => void
-    onShapeUpdate: (shapeId: string, updates: Partial<WireframeNode>) => void
+    onShapeUpdate: (shapeId: string, updates: Partial<Shape>) => void
     bindShapeRef: (id: string, node: any) => void
     onClick: (pos: { x: number, y: number }) => void
     onRename?: (artboardId: string, newName: string) => void
@@ -17,8 +16,6 @@ interface ArtboardFrameProps {
     onContextMenu?: (x: number, y: number) => void
     onMove?: (artboardId: string, x: number, y: number) => void
     onResize?: (artboardId: string, width: number, height: number, newX?: number, newY?: number) => void
-    onNodeDragMove?: (artboardId: string, e: KonvaEventObject<DragEvent>) => void
-    onNodeDragEnd?: (e: KonvaEventObject<DragEvent>) => void
 }
 
 export const ArtboardFrame = React.memo(({
@@ -34,8 +31,6 @@ export const ArtboardFrame = React.memo(({
     onContextMenu,
     onMove,
     onResize,
-    onNodeDragMove,
-    onNodeDragEnd,
 }: ArtboardFrameProps) => {
 
     // Resize state - store initial values when drag starts
@@ -86,58 +81,262 @@ export const ArtboardFrame = React.memo(({
         let newY = resizing.startArtboardY
 
         // Calculate new dimensions AND position based on which corner/edge was dragged
+        // For east (right) edge: expand width to the right, position stays same
         if (corner.includes('e')) {
             newWidth = Math.max(100, resizing.startW + dx)
         }
+        // For west (left) edge: expand width to the left, move artboard left
         if (corner.includes('w')) {
             const proposedWidth = resizing.startW - dx
             if (proposedWidth >= 100) {
                 newWidth = proposedWidth
-                newX = resizing.startArtboardX + dx
+                newX = resizing.startArtboardX + dx  // Move left as we extend left
             } else {
                 newWidth = 100
                 newX = resizing.startArtboardX + (resizing.startW - 100)
             }
         }
+        // For south (bottom) edge: expand height downward, position stays same
         if (corner.includes('s')) {
             newHeight = Math.max(100, resizing.startH + dy)
         }
+        // For north (top) edge: expand height upward, move artboard up
         if (corner.includes('n')) {
             const proposedHeight = resizing.startH - dy
             if (proposedHeight >= 100) {
                 newHeight = proposedHeight
-                newY = resizing.startArtboardY + dy
+                newY = resizing.startArtboardY + dy  // Move up as we extend up
             } else {
                 newHeight = 100
                 newY = resizing.startArtboardY + (resizing.startH - 100)
             }
         }
 
+        // Reset handle position to stay at edge (prevents handle from moving away)
         node.position({ x: 0, y: 0 })
+
+        // Update artboard dimensions AND position in real-time
         onResize?.(artboard.id, Math.round(newWidth), Math.round(newHeight), Math.round(newX), Math.round(newY))
     }
 
     const handleResizeEnd = (e: KonvaEventObject<DragEvent>) => {
         e.cancelBubble = true
         const node = e.target
+        // Reset handle position
         node.position({ x: 0, y: 0 })
         setResizing(null)
     }
 
-    // Recursive render helper
-    const renderNode = (node: WireframeNode) => {
-        return (
-            <NodeRenderer
-                key={node.id}
-                node={node}
-                selectedShapeId={selectedShapeId}
-                onSelect={(id, _opts) => onShapeSelect(id)}
-                onChange={onShapeUpdate}
-                bindShapeRef={bindShapeRef}
-                onDragMove={(e) => onNodeDragMove?.(artboard.id, e)}
-                onDragEnd={onNodeDragEnd}
-            />
-        )
+    const handleShapeClick = (e: KonvaEventObject<MouseEvent>, shapeId: string) => {
+        e.cancelBubble = true
+        onShapeSelect(shapeId)
+    }
+
+    const handleDragEnd = (shapeId: string, e: KonvaEventObject<DragEvent>) => {
+        onShapeUpdate(shapeId, {
+            x: e.target.x(),
+            y: e.target.y(),
+        })
+    }
+
+    const handleTransformEnd = (shapeId: string, e: KonvaEventObject<Event>) => {
+        const node = e.target
+        const scaleX = node.scaleX()
+        const scaleY = node.scaleY()
+
+        // Reset scale and apply to width/height
+        node.scaleX(1)
+        node.scaleY(1)
+
+        onShapeUpdate(shapeId, {
+            x: node.x(),
+            y: node.y(),
+            width: Math.max(20, node.width() * scaleX),
+            height: Math.max(20, node.height() * scaleY),
+            rotation: node.rotation(),
+        })
+    }
+
+    const renderShape = (shape: Shape) => {
+        const isSelected = selectedShapeId === shape.id
+        const commonProps = {
+            x: shape.x,
+            y: shape.y,
+            rotation: shape.rotation || 0,
+            opacity: shape.opacity ?? 1,
+            draggable: true,
+            onClick: (e: KonvaEventObject<MouseEvent>) => handleShapeClick(e, shape.id),
+            onDragEnd: (e: KonvaEventObject<DragEvent>) => handleDragEnd(shape.id, e),
+            onTransformEnd: (e: KonvaEventObject<Event>) => handleTransformEnd(shape.id, e),
+        }
+
+        switch (shape.type) {
+            case 'rect':
+                return (
+                    <Rect
+                        key={shape.id}
+                        ref={(node) => bindShapeRef(shape.id, node)}
+                        {...commonProps}
+                        width={shape.width}
+                        height={shape.height}
+                        fill={shape.fill}
+                        stroke={isSelected ? '#6366f1' : shape.stroke}
+                        strokeWidth={isSelected ? 3 : shape.strokeWidth}
+                        cornerRadius={shape.borderRadius || 4}
+                    />
+                )
+
+            case 'circle':
+                return (
+                    <Circle
+                        key={shape.id}
+                        ref={(node) => bindShapeRef(shape.id, node)}
+                        {...commonProps}
+                        radius={shape.width / 2}
+                        fill={shape.fill}
+                        stroke={isSelected ? '#6366f1' : shape.stroke}
+                        strokeWidth={isSelected ? 3 : shape.strokeWidth}
+                    />
+                )
+
+            case 'text':
+                return (
+                    <Text
+                        key={shape.id}
+                        ref={(node) => bindShapeRef(shape.id, node)}
+                        {...commonProps}
+                        text={shape.text || 'Text'}
+                        fontSize={shape.fontSize || 16}
+                        fill={shape.fill}
+                        width={shape.width}
+                    />
+                )
+
+            case 'line':
+                return (
+                    <Line
+                        key={shape.id}
+                        ref={(node) => bindShapeRef(shape.id, node)}
+                        {...commonProps}
+                        points={shape.points || [0, 0, 100, 0]}
+                        stroke={isSelected ? '#6366f1' : shape.stroke}
+                        strokeWidth={isSelected ? 3 : shape.strokeWidth}
+                        lineCap="round"
+                        lineJoin="round"
+                    />
+                )
+
+            case 'arrow':
+                return (
+                    <Arrow
+                        key={shape.id}
+                        ref={(node) => bindShapeRef(shape.id, node)}
+                        {...commonProps}
+                        points={shape.points || [0, 0, 100, 0]}
+                        stroke={isSelected ? '#6366f1' : shape.stroke}
+                        strokeWidth={isSelected ? 3 : shape.strokeWidth}
+                        fill={shape.stroke}
+                        pointerLength={10}
+                        pointerWidth={10}
+                    />
+                )
+
+            case 'button':
+                return (
+                    <Group
+                        key={shape.id}
+                        ref={(node) => bindShapeRef(shape.id, node)}
+                        {...commonProps}
+                    >
+                        <Rect
+                            width={shape.width}
+                            height={shape.height}
+                            fill={shape.fill}
+                            stroke={isSelected ? '#6366f1' : shape.stroke}
+                            strokeWidth={isSelected ? 3 : shape.strokeWidth}
+                            cornerRadius={6}
+                        />
+                        <Text
+                            text={shape.text || 'Button'}
+                            width={shape.width}
+                            height={shape.height}
+                            align="center"
+                            verticalAlign="middle"
+                            fontSize={14}
+                            fill="#ffffff"
+                        />
+                    </Group>
+                )
+
+            case 'input':
+                return (
+                    <Group
+                        key={shape.id}
+                        ref={(node) => bindShapeRef(shape.id, node)}
+                        {...commonProps}
+                    >
+                        <Rect
+                            width={shape.width}
+                            height={shape.height}
+                            fill="#252525"
+                            stroke={isSelected ? '#6366f1' : '#3a3a3a'}
+                            strokeWidth={isSelected ? 3 : 1}
+                            cornerRadius={4}
+                        />
+                        <Text
+                            text="Input field..."
+                            x={10}
+                            y={(shape.height - 14) / 2}
+                            fontSize={14}
+                            fill="#6a6a6a"
+                        />
+                    </Group>
+                )
+
+            case 'card':
+                return (
+                    <Group
+                        key={shape.id}
+                        ref={(node) => bindShapeRef(shape.id, node)}
+                        {...commonProps}
+                    >
+                        <Rect
+                            width={shape.width}
+                            height={shape.height}
+                            fill="#1a1a1a"
+                            stroke={isSelected ? '#6366f1' : '#2a2a2a'}
+                            strokeWidth={isSelected ? 3 : 1}
+                            cornerRadius={8}
+                        />
+                        <Rect
+                            x={10}
+                            y={10}
+                            width={shape.width - 20}
+                            height={40}
+                            fill="#252525"
+                            cornerRadius={4}
+                        />
+                        <Text
+                            text="Card Title"
+                            x={10}
+                            y={60}
+                            fontSize={14}
+                            fontStyle="bold"
+                            fill="#ffffff"
+                        />
+                        <Text
+                            text="Card content..."
+                            x={10}
+                            y={80}
+                            fontSize={12}
+                            fill="#a1a1aa"
+                        />
+                    </Group>
+                )
+
+            default:
+                return null
+        }
     }
 
     return (
@@ -173,7 +372,7 @@ export const ArtboardFrame = React.memo(({
             <Rect
                 width={artboard.width}
                 height={artboard.height}
-                fill={artboard.fill || "#ffffff"}
+                fill="#ffffff"
                 stroke={isSelected ? '#6366f1' : 'transparent'}
                 strokeWidth={2}
                 shadowColor="black"
@@ -189,7 +388,7 @@ export const ArtboardFrame = React.memo(({
 
                     if (pointerPos) {
                         const relativePos = transform.point(pointerPos)
-                        onClick(relativePos) // Pass relative position for adding new shapes
+                        onClick(relativePos)
                     }
                 }}
                 onContextMenu={(e) => {
@@ -198,10 +397,10 @@ export const ArtboardFrame = React.memo(({
                 }}
             />
 
-            {/* Render Children Nodes */}
-            {artboard.children.map(renderNode)}
+            {/* Render Shapes */}
+            {artboard.shapes.map(renderShape)}
 
-            {/* Resize Handles (unchanged) */}
+            {/* Resize Handles - only show when selected */}
             {isSelected && (
                 <>
                     {/* Corner handles */}

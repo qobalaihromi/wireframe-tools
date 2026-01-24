@@ -1,11 +1,13 @@
+import { Sparkles } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { useProjectStore } from '../../stores/projectStore'
+import { useVibeStore } from '../../stores/vibeStore'
 
 const moduleTitles = {
     'project-hub': 'Project Hub',
     'prd': 'PRD Generator',
     'flowchart': 'Flowchart Editor',
-    'wireframe': 'Wireframe Builder',
+    'wireframe': 'Vibe Designer',
     'bundle': 'Context Bundle',
 }
 
@@ -27,7 +29,13 @@ export function Header() {
             </div>
 
             <div className="flex items-center gap-2">
-                {/* Future: Add quick actions here */}
+                <button
+                    onClick={() => useVibeStore.getState().toggleChat()}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-[#6366f1]/10 text-[#6366f1] hover:bg-[#6366f1]/20 rounded-full transition-colors border border-[#6366f1]/20"
+                >
+                    <Sparkles size={16} />
+                    <span className="text-sm font-medium">Ask Vibe</span>
+                </button>
             </div>
         </header>
     )

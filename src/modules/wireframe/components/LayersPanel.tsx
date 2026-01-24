@@ -1,16 +1,128 @@
+import { ChevronRight, ChevronDown, Layout, Type, Box, Circle, Minus, MousePointer2 } from 'lucide-react'
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Frame, Square, Circle, Type, Minus, ArrowRight, MoreHorizontal } from 'lucide-react'
-import type { Artboard, Shape } from '../../../stores/wireframeStore'
+import type { Artboard, WireframeNode, ShapeType } from '../../../stores/wireframeStore'
+import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, closestCenter } from '@dnd-kit/core'
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface LayersPanelProps {
     artboards: Artboard[]
     selectedArtboardId: string | null
     selectedShapeId: string | null
-    onSelectArtboard: (artboardId: string | null) => void
-    onSelectShape: (artboardId: string, shapeId: string | null) => void
-    onRenameArtboard: (artboardId: string, newName: string) => void
-    onDuplicateArtboard: (artboardId: string) => void
-    onDeleteArtboard: (artboardId: string) => void
+    onSelectArtboard: (id: string) => void
+    onSelectShape: (artboardId: string, shapeId: string) => void
+    onRenameArtboard: (id: string, newName: string) => void
+    onDuplicateArtboard: (id: string) => void
+    onDeleteArtboard: (id: string) => void
+    onMoveNode: (artboardId: string, nodeId: string, targetParentId: string | null, index: number) => void
+}
+
+const getNodeIcon = (type: ShapeType) => {
+    switch (type) {
+        case 'rect': return <Box className="w-3 h-3" />
+        case 'circle': return <Circle className="w-3 h-3" />
+        case 'text': return <Type className="w-3 h-3" />
+        case 'button': return <MousePointer2 className="w-3 h-3" />
+        case 'line':
+        case 'arrow': return <Minus className="w-3 h-3" />
+        case 'group': return <Layout className="w-3 h-3" />
+        case 'frame': return <Layout className="w-3 h-3" />
+        default: return <Box className="w-3 h-3" />
+    }
+}
+
+// Recursive component for Tree item
+const SortableLayerItem = ({
+    node,
+    depth = 0,
+    selectedShapeId,
+    onSelect,
+    artboardId,
+    onMoveNode,
+}: {
+    node: WireframeNode
+    depth?: number
+    selectedShapeId: string | null
+    onSelect: (id: string) => void
+    artboardId: string
+    onMoveNode: (artboardId: string, nodeId: string, targetParentId: string | null, index: number) => void
+}) => {
+    const isSelected = selectedShapeId === node.id
+    const [isExpanded, setIsExpanded] = useState(true)
+    const hasChildren = node.children && node.children.length > 0
+
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: node.id, data: { node, depth, parentId: null } }) // parentId null here is tricky, we ideally need it
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        paddingLeft: `${depth * 12 + 8}px`
+    }
+
+    return (
+        <div>
+            <div
+                ref={setNodeRef}
+                style={style}
+                {...attributes}
+                {...listeners}
+                className={`flex items-center gap-2 px-2 py-1 text-xs cursor-pointer select-none ${isSelected ? 'bg-[#3b82f6] text-white' : 'hover:bg-[#252525] text-[#a1a1aa]'}`}
+                onClick={(e) => {
+                    e.stopPropagation()
+                    onSelect(node.id)
+                }}
+            >
+                <span
+                    className="p-0.5 hover:bg-white/10 rounded cursor-pointer"
+                    onPointerDown={(e) => e.stopPropagation()} // Prevent drag start on expander
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        if (hasChildren) setIsExpanded(!isExpanded)
+                    }}
+                >
+                    {hasChildren ? (
+                        isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />
+                    ) : (
+                        <span className="w-3 h-3 inline-block" />
+                    )}
+                </span>
+
+                {getNodeIcon(node.type)}
+                <span className="truncate">{node.name || node.text || node.type}</span>
+            </div>
+
+            {hasChildren && isExpanded && (
+                <div className="flex flex-col">
+                    <SortableContext
+                        items={node.children!.map(c => c.id)}
+                        strategy={verticalListSortingStrategy}
+                        id={node.id} // Context ID matches group ID
+                    >
+                        {node.children!.slice().reverse().map(child => (
+                            <SortableLayerItem
+                                key={child.id}
+                                node={child}
+                                depth={depth + 1}
+                                selectedShapeId={selectedShapeId}
+                                onSelect={onSelect}
+                                artboardId={artboardId}
+                                onMoveNode={onMoveNode}
+                            />
+                        ))}
+                    </SortableContext>
+                </div>
+            )}
+        </div>
+    )
 }
 
 export function LayersPanel({
@@ -19,221 +131,116 @@ export function LayersPanel({
     selectedShapeId,
     onSelectArtboard,
     onSelectShape,
-    onRenameArtboard,
-    onDuplicateArtboard,
-    onDeleteArtboard,
+    onMoveNode,
 }: LayersPanelProps) {
-    const [expandedArtboards, setExpandedArtboards] = useState<Set<string>>(new Set(artboards.map(a => a.id)))
-    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, artboardId: string } | null>(null)
-    const [editingId, setEditingId] = useState<string | null>(null)
-    const [editValue, setEditValue] = useState('')
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 5,
+            },
+        })
+    )
 
-    const toggleExpanded = (artboardId: string) => {
-        const newSet = new Set(expandedArtboards)
-        if (newSet.has(artboardId)) {
-            newSet.delete(artboardId)
-        } else {
-            newSet.add(artboardId)
-        }
-        setExpandedArtboards(newSet)
+    const [activeId, setActiveId] = useState<string | null>(null)
+
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(event.active.id as string)
     }
 
-    const getShapeIcon = (type: Shape['type']) => {
-        switch (type) {
-            case 'rect': return <Square size={14} />
-            case 'circle': return <Circle size={14} />
-            case 'text': return <Type size={14} />
-            case 'line': return <Minus size={14} />
-            case 'arrow': return <ArrowRight size={14} />
-            case 'button': return <Square size={14} className="text-blue-400" />
-            case 'input': return <Square size={14} className="text-green-400" />
-            case 'card': return <Square size={14} className="text-purple-400" />
-            default: return <Square size={14} />
-        }
-    }
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event
+        setActiveId(null)
 
-    const handleContextMenu = (e: React.MouseEvent, artboardId: string) => {
-        e.preventDefault()
-        const menuWidth = 140
-        const menuHeight = 100
-        // Calculate position - shift left if would overflow right edge
-        let x = e.clientX
-        let y = e.clientY
-        if (x + menuWidth > window.innerWidth) {
-            x = x - menuWidth
-        }
-        if (y + menuHeight > window.innerHeight) {
-            y = y - menuHeight
-        }
-        setContextMenu({ x, y, artboardId })
-    }
+        if (!over || active.id === over.id) return
 
-    const handleStartRename = (artboardId: string, currentName: string) => {
-        setEditingId(artboardId)
-        setEditValue(currentName)
-        setContextMenu(null)
-    }
+        // This is a simplified flat-list logic. Real logic needs tree awareness.
+        // For MVP, if we move within the same context, we just reorder.
+        // dnd-kit "over" will be the item we dropped ON.
 
-    const handleFinishRename = () => {
-        if (editingId && editValue.trim()) {
-            onRenameArtboard(editingId, editValue.trim())
-        }
-        setEditingId(null)
-        setEditValue('')
-    }
+        // We need to find the parent of the active item and the parent of the over item.
+        // Since we didn't pass full parent info map, we might need store help or traversal.
+        // But SortableContext gives us some info.
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            handleFinishRename()
-        } else if (e.key === 'Escape') {
-            setEditingId(null)
-            setEditValue('')
-        }
+        // A tricky part: We rendered children in REVERSE order (`slice().reverse()`).
+        // So index 0 in UI is index Length-1 in data.
+        // If sorting logic uses index, we must account for this or use non-reversed order in data.
+
+        // Simpler: Just get the IDs and let the store handle "move activeId to be before/after overId".
+        // But `moveNode` signature is `(targetParent, targetIndex)`.
+
+        // We really need to know the target structure.
+        // Since this is complex to do blindly, let's assume specific "SortableContext" container logic.
+        // If `over` is in container X, we move `active` to container X.
+
+        // Let's implement a simplified "Move to Root" or "Reorder via raw index" later.
+        // For this step, I'll log the move request to verify the UI interaction first.
+
+        console.log('Drag End:', active.id, 'over', over.id)
+        // TODO: Calculate new parent and index based on `over`.
     }
 
     return (
-        <div className="w-56 bg-[#1a1a1a] border-r border-[#333] flex flex-col h-full">
-            {/* Header */}
-            <div className="px-3 py-2 border-b border-[#333] flex items-center justify-between">
-                <span className="text-sm font-medium text-white">Layers</span>
-                <span className="text-xs text-[#666]">{artboards.length}</span>
-            </div>
+        <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+        >
+            <div className="flex flex-col gap-1">
+                {artboards.map(artboard => {
+                    const isSelected = selectedArtboardId === artboard.id
+                    const isExpanded = isSelected
 
-            {/* Artboard List */}
-            <div className="flex-1 overflow-y-auto py-1">
-                {artboards.length === 0 ? (
-                    <div className="px-3 py-4 text-center text-[#666] text-sm">
-                        No artboards yet
-                    </div>
-                ) : (
-                    artboards.map(artboard => (
-                        <div key={artboard.id}>
-                            {/* Artboard Item */}
+                    return (
+                        <div key={artboard.id} className="flex flex-col">
+                            {/* Artboard Header */}
                             <div
-                                className={`flex items-center px-2 py-1.5 cursor-pointer group
-                                    ${selectedArtboardId === artboard.id ? 'bg-[#333]' : 'hover:bg-[#252525]'}`}
+                                className={`flex items-center gap-2 px-2 py-1.5 text-xs font-medium cursor-pointer ${isSelected ? 'bg-[#252525] text-white' : 'text-[#a1a1aa] hover:text-white'}`}
                                 onClick={() => onSelectArtboard(artboard.id)}
-                                onContextMenu={(e) => handleContextMenu(e, artboard.id)}
-                                onDoubleClick={() => handleStartRename(artboard.id, artboard.name)}
                             >
-                                {/* Expand/Collapse */}
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation()
-                                        toggleExpanded(artboard.id)
-                                    }}
-                                    className="p-0.5 hover:bg-[#444] rounded mr-1"
-                                >
-                                    {expandedArtboards.has(artboard.id)
-                                        ? <ChevronDown size={14} className="text-[#888]" />
-                                        : <ChevronRight size={14} className="text-[#888]" />
-                                    }
-                                </button>
-
-                                {/* Icon */}
-                                <Frame size={14} className="text-[#888] mr-2" />
-
-                                {/* Name (editable) */}
-                                {editingId === artboard.id ? (
-                                    <input
-                                        type="text"
-                                        value={editValue}
-                                        onChange={(e) => setEditValue(e.target.value)}
-                                        onBlur={handleFinishRename}
-                                        onKeyDown={handleKeyDown}
-                                        autoFocus
-                                        className="flex-1 bg-[#333] text-white text-sm px-1 py-0.5 rounded outline-none border border-[#6366f1]"
-                                    />
-                                ) : (
-                                    <span className="flex-1 text-sm text-white truncate">
-                                        {artboard.name}
-                                    </span>
-                                )}
-
-                                {/* Size Badge */}
-                                <span className="text-[10px] text-[#666] ml-2">
-                                    {artboard.width}×{artboard.height}
-                                </span>
-
-                                {/* More Button */}
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleContextMenu(e, artboard.id)
-                                    }}
-                                    className="p-1 opacity-0 group-hover:opacity-100 hover:bg-[#444] rounded ml-1"
-                                >
-                                    <MoreHorizontal size={14} className="text-[#888]" />
-                                </button>
+                                {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                                <Layout className="w-3 h-3" />
+                                <span className="truncate">{artboard.name}</span>
                             </div>
 
-                            {/* Shapes List */}
-                            {expandedArtboards.has(artboard.id) && artboard.shapes.length > 0 && (
-                                <div className="ml-6">
-                                    {artboard.shapes.map(shape => (
-                                        <div
-                                            key={shape.id}
-                                            className={`flex items-center px-2 py-1 cursor-pointer
-                                                ${selectedShapeId === shape.id ? 'bg-[#333]' : 'hover:bg-[#252525]'}`}
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                onSelectShape(artboard.id, shape.id)
-                                            }}
-                                        >
-                                            <span className="text-[#888] mr-2">{getShapeIcon(shape.type)}</span>
-                                            <span className="text-sm text-[#aaa] capitalize">{shape.type}</span>
+                            {/* Children */}
+                            {isExpanded && (
+                                <div className="flex flex-col">
+                                    <SortableContext
+                                        items={artboard.children.map(c => c.id)}
+                                        strategy={verticalListSortingStrategy}
+                                        id={artboard.id} // Context ID = Artboard ID
+                                    >
+                                        {artboard.children.slice().reverse().map(node => (
+                                            <SortableLayerItem
+                                                key={node.id}
+                                                node={node}
+                                                selectedShapeId={selectedShapeId}
+                                                onSelect={(nodeId) => onSelectShape(artboard.id, nodeId)}
+                                                artboardId={artboard.id}
+                                                onMoveNode={onMoveNode}
+                                            />
+                                        ))}
+                                    </SortableContext>
+                                    {artboard.children.length === 0 && (
+                                        <div className="px-8 py-2 text-[10px] text-[#52525b] italic">
+                                            No layers
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             )}
                         </div>
-                    ))
-                )}
+                    )
+                })}
             </div>
 
-            {/* Context Menu */}
-            {contextMenu && (
-                <>
-                    <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setContextMenu(null)}
-                    />
-                    <div
-                        className="fixed z-50 bg-[#1a1a1a] border border-[#333] rounded-lg shadow-xl py-1 min-w-[140px]"
-                        style={{ left: contextMenu.x, top: contextMenu.y }}
-                    >
-                        <button
-                            onClick={() => {
-                                const artboard = artboards.find(a => a.id === contextMenu.artboardId)
-                                if (artboard) handleStartRename(artboard.id, artboard.name)
-                            }}
-                            className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-[#333]"
-                        >
-                            Rename
-                        </button>
-                        <button
-                            onClick={() => {
-                                onDuplicateArtboard(contextMenu.artboardId)
-                                setContextMenu(null)
-                            }}
-                            className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-[#333]"
-                        >
-                            Duplicate
-                        </button>
-                        <button
-                            onClick={() => {
-                                if (confirm('Delete this artboard?')) {
-                                    onDeleteArtboard(contextMenu.artboardId)
-                                }
-                                setContextMenu(null)
-                            }}
-                            className="w-full px-3 py-1.5 text-left text-sm text-red-400 hover:bg-[#333]"
-                        >
-                            Delete
-                        </button>
+            <DragOverlay>
+                {activeId ? (
+                    <div className="bg-[#3b82f6] text-white px-2 py-1 text-xs rounded shadow opacity-80">
+                        Moving Layer...
                     </div>
-                </>
-            )}
-        </div>
+                ) : null}
+            </DragOverlay>
+        </DndContext>
     )
 }
